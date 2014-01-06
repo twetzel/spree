@@ -5,7 +5,7 @@ module Spree
     module ControllerSetup
       def self.included(klass)
         klass.class_eval do
-          include AbstractController::ViewPaths
+          include ActionView::ViewPaths
           include AbstractController::Callbacks
           include AbstractController::Helpers
 
