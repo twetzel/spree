@@ -8,6 +8,8 @@ module Spree
           include ActionView::ViewPaths
           include AbstractController::Callbacks
           include AbstractController::Helpers
+          include AbstractController::Rendering
+          include ActionView::Rendering
 
           include ActiveSupport::Rescuable
 
