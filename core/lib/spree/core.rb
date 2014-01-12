@@ -68,3 +68,12 @@ require 'spree/core/controller_helpers'
 require 'spree/core/controller_helpers/strong_parameters'
 require 'spree/core/controller_helpers/ssl'
 require 'spree/core/controller_helpers/search'
+
+# Hack waiting on https://github.com/pluginaweek/state_machine/pull/275
+module StateMachine
+  module Integrations
+    module ActiveModel
+      public :around_validation
+    end
+  end
+end
