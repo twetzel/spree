@@ -38,6 +38,14 @@ describe Spree::Payment do
     payment.log_entries.stub(:create!)
   end
 
+  context '#uncaptured_amount' do
+    it "sets uncaptured amount on save" do
+      expect(payment.uncaptured_amount).to eq(0)
+      payment.save
+      expect(payment.uncaptured_amount).to eq(payment.amount)
+    end
+  end
+
   context 'validations' do
     it "returns useful error messages when source is invalid" do
       payment.source = Spree::CreditCard.new
@@ -83,7 +91,7 @@ describe Spree::Payment do
     describe "#process!" do
       it "should purchase if with auto_capture" do
         payment.payment_method.should_receive(:auto_capture?).and_return(true)
-        payment.should_receive(:purchase!)
+        payment.should_receive(:capture!)
         payment.process!
       end
 
@@ -202,43 +210,73 @@ describe Spree::Payment do
           payment.should_receive(:complete!)
           payment.purchase!
         end
+
+        it "should log a capture event" do
+          payment.purchase!
+          expect(payment.capture_events.count).to eq(1)
+          expect(payment.capture_events.first.amount).to eq(payment.amount)
+        end
+
+        it "should set the uncaptured amount to 0" do
+          payment.purchase!
+          expect(payment.uncaptured_amount).to eq(0)
+        end
       end
 
       context "if unsuccessful" do
-        it "should make payment failed" do
+        before do
           gateway.stub(:purchase).and_return(failed_response)
           payment.should_receive(:failure)
           payment.should_not_receive(:pend)
+        end
+
+        it "should make payment failed" do
           expect { payment.purchase! }.to raise_error(Spree::Core::GatewayError)
+        end
+
+        it "should not log a capture event" do
+          expect { payment.purchase! }.to raise_error(Spree::Core::GatewayError)
+          expect(payment.capture_events.count).to eq(0)
         end
       end
     end
 
     describe "#capture!" do
-      before do
-        payment.stub(:complete).and_return(true)
-      end
-
       context "when payment is pending" do
         before do
+          payment.amount = 100
           payment.state = 'pending'
+          payment.response_code = '12345'
         end
 
         context "if successful" do
           before do
-            payment.payment_method.should_receive(:capture).with(payment, card, anything).and_return(success_response)
+            payment.payment_method.should_receive(:capture).with(payment.money.money.cents, payment.response_code, anything).and_return(success_response)
           end
 
           it "should make payment complete" do
-            payment.should_receive(:complete)
+            payment.should_receive(:complete!)
             payment.capture!
           end
 
-          it "should store the response_code" do
-            gateway.stub :capture => success_response
+          it "logs capture events" do
             payment.capture!
-            payment.response_code.should == '123'
+            expect(payment.capture_events.count).to eq(1)
+            expect(payment.capture_events.first.amount).to eq(payment.amount)
           end
+        end
+
+        context "capturing a partial amount" do
+          it "logs capture events" do
+            payment.capture!(5000)
+            expect(payment.capture_events.count).to eq(1)
+            expect(payment.capture_events.first.amount).to eq(50)
+          end
+
+          it "stores the uncaptured amount on the payment" do
+            payment.capture!(6000)
+            expect(payment.uncaptured_amount).to eq(40) # 100 - 60 = 40
+          end 
         end
 
         context "if unsuccessful" do
@@ -703,17 +741,17 @@ describe Spree::Payment do
   end
 
   describe "is_avs_risky?" do
-    it "should return false if avs_response == 'D'" do
+    it "returns false if avs_response == 'D'" do
       payment.update_attribute(:avs_response, "D")
       payment.is_avs_risky?.should == false
     end
 
-    it "should return false if avs_response == nil" do
+    it "returns false if avs_response == nil" do
       payment.update_attribute(:avs_response, nil)
       payment.is_avs_risky?.should == false
     end
 
-    it "should return true if avs_response == A-Z, omitting D" do
+    it "returns true if avs_response == A-Z, omitting D" do
       # should use avs_response_code helper
       ('A'..'Z').reject{ |x| x == 'D' }.to_a.each do |char|
         payment.update_attribute(:avs_response, char)
@@ -723,19 +761,24 @@ describe Spree::Payment do
   end
 
   describe "is_cvv_risky?" do
-    it "should return false if cvv_response_code == 'M'" do
+    it "returns false if cvv_response_code == 'M'" do
       payment.update_attribute(:cvv_response_code, "M")
       payment.is_cvv_risky?.should == false
     end
 
-    it "should return false if cvv_response_code == nil" do
+    it "returns false if cvv_response_code == nil" do
       payment.update_attribute(:cvv_response_code, nil)
       payment.is_cvv_risky?.should == false
     end
 
-    it "should return true if cvv_response_code == A-Z, omitting D" do
+    it "returns false if cvv_response_message == ''" do
+      payment.update_attribute(:cvv_response_message, '')
+      payment.is_cvv_risky?.should == false
+    end
+
+    it "returns true if cvv_response_code == [A-Z], omitting D" do
       # should use cvv_response_code helper
-      (%w{N P S U} << '').each do |char|
+      (%w{N P S U} << "").each do |char|
         payment.update_attribute(:cvv_response_code, char)
         payment.is_cvv_risky?.should == true
       end

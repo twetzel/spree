@@ -24,6 +24,7 @@ en:
         number: Number
         verification_value: Verification Value
         year: Year
+        name: Name
       spree/inventory_unit:
         state: State
       spree/line_item:
@@ -320,13 +321,18 @@ en:
           delivery_success: Test Mail sent successfully
           error: ! 'Test Mail error: %{e}'
       tab:
-        overview: "Overview"
-        orders: "Orders"
-        products: "Products"
-        reports: "Reports"
-        configuration: "Configuration"
-        promotions: "Promotions"
-        users: "Users"
+        configuration: Configuration
+        option_types: Option Types
+        orders: Orders
+        overview: Overview
+        products: Products
+        promotions: Promotions
+        properties: Properties
+        prototypes: Prototypes
+        reports: Reports
+        taxonomies: Taxonomies
+        taxons: Taxons
+        users: Users
     administration: Administration
     agree_to_privacy_policy: Agree to Privacy Policy
     agree_to_terms_of_service: Agree to Terms of Service
@@ -565,11 +571,11 @@ en:
     first_name: First Name
     first_name_begins_with: First Name Begins With
     flat_percent: Flat Percent
-    flat_rate_per_item: Flat Rate (per item)
-    flat_rate_per_order: Flat Rate (per order)
+    flat_rate_per_order: Flat Rate
     flexible_rate: Flexible Rate
     forgot_password: Forgot Password?
     free_shipping: Free Shipping
+    free_shipping_amount: "-"
     front_end: Front End
     gateway: Gateway
     gateway_config_unavailable: Gateway unavailable for environment
@@ -599,6 +605,7 @@ en:
     icon: Icon
     image: Image
     images: Images
+    inactive: Inactive
     included_in_price: Included in Price
     included_price_validation: cannot be selected unless you have set a Default Tax Zone
     instructions_to_reset_password: Please enter your email on the form below
@@ -771,7 +778,7 @@ en:
         thanks: Thank you for your business.
         total: ! 'Order Total: %{total}'
     order_not_found: We couldn't find your order. Please try that action again.
-    order_number: Order
+    order_number: Order %{number}
     order_populator:
       out_of_stock: ! '%{item} is out of stock.'
       selected_quantity_not_available: ! 'Selected quantity of %{item} is not available.'
@@ -805,6 +812,7 @@ en:
     path: Path
     pay: pay
     payment: Payment
+    payment_could_not_be_created: Payment could not be created.
     payment_information: Payment Information
     payment_method: Payment Method
     payment_methods: Payment Methods
@@ -858,10 +866,10 @@ en:
     promotion_action_types:
       create_adjustment:
         description: Creates a promotion credit adjustment on the order
-        name: Create adjustment
+        name: Create whole-order adjustment
       create_item_adjustments:
         description: Creates a promotion credit adjustment on a line item
-        name: Create order item adjustment
+        name: Create per-line-item adjustment
       create_line_items:
         description: Populates the cart with the specified quantity of variant
         name: Create line items
@@ -894,6 +902,7 @@ en:
         description: Available only to logged in users
         name: User Logged In
     promotions: Promotions
+    promotion_uses: Promotion uses
     properties: Properties
     property: Property
     prototype: Prototype
@@ -931,6 +940,7 @@ en:
     review: Review
     risk: Risk
     risk_analysis: Risk Analysis
+    risky: Risky
     rma_credit: RMA Credit
     rma_number: RMA Number
     rma_value: RMA Value
@@ -1005,6 +1015,7 @@ en:
     site_name: Site Name
     site_url: Site URL
     sku: SKU
+    slug: Slug
     smtp: SMTP
     smtp_authentication_type: SMTP Authentication Type
     smtp_domain: SMTP Domain

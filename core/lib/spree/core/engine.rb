@@ -59,8 +59,6 @@ module Spree
           Spree::Calculator::FlatPercentItemTotal,
           Spree::Calculator::FlatRate,
           Spree::Calculator::FlexiRate,
-          Spree::Calculator::PerItem,
-          Spree::Calculator::PercentPerItem
         ]
 
         app.config.spree.calculators.add_class('promotion_actions_create_item_adjustments')
@@ -97,6 +95,10 @@ module Spree
           :password_confirmation,
           :number,
           :verification_value]
+      end
+
+      initializer "spree.core.checking_migrations" do |app|
+        Migrations.new(config, engine_name).check
       end
     end
   end

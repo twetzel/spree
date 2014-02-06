@@ -24,25 +24,16 @@ module Spree
         end
 
         begin
-          unless @payment.save
-            redirect_to admin_order_payments_path(@order)
-            return
-          end
-
-          if @order.completed?
-            @payment.process!
+          if @payment.save
+            # Transition order as far as it will go.
+            while @order.next; end
+            @payment.process! if @order.completed?
             flash[:success] = flash_message_for(@payment, :successfully_created)
-
-             redirect_to admin_order_payments_path(@order)
+            redirect_to admin_order_payments_path(@order)
           else
-            #This is the first payment (admin created order)
-            until @order.completed?
-              @order.next!
-            end
-            flash[:success] = Spree.t(:new_order_completed)
-            redirect_to edit_admin_order_url(@order)
+            flash[:error] = Spree.t(:payment_could_not_be_created)
+            render :new
           end
-
         rescue Spree::Core::GatewayError => e
           flash[:error] = "#{e.message}"
           redirect_to new_admin_order_payment_path(@order)
@@ -71,7 +62,8 @@ module Spree
         if params[:payment] and params[:payment_source] and source_params = params.delete(:payment_source)[params[:payment][:payment_method_id]]
           params[:payment][:source_attributes] = source_params
         end
-        params.require(:payment).permit(:amount, :payment_method_id, source_attributes: [:number, :expiry, :verification_value])
+        
+        params.require(:payment).permit(permitted_payment_attributes)
       end
 
       def load_data
@@ -100,6 +92,10 @@ module Spree
 
       def load_payment
         @payment = Payment.find(params[:id])
+      end
+
+      def model_class
+        Spree::Payment
       end
     end
   end

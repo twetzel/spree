@@ -144,6 +144,12 @@ describe Spree::Order do
     context "from delivery" do
       before do
         order.state = 'delivery'
+        order.stub(:apply_free_shipping_promotions)
+      end
+
+      it "attempts to apply free shipping promotions" do
+        order.should_receive(:apply_free_shipping_promotions)
+        order.next!
       end
 
       context "with payment required" do
@@ -388,8 +394,17 @@ describe Spree::Order do
           order.update_from_params(params, permitted_params)
         end
       end
-    end
 
+      context 'callbacks halt' do
+        before do
+          order.should_receive(:update_params_payment_source).and_return false
+        end
+        it 'does not let through unpermitted attributes' do
+          order.should_not_receive(:update_attributes).with({})
+          order.update_from_params(params, permitted_params)
+        end
+      end
+    end
 
   end
 end

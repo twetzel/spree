@@ -25,7 +25,7 @@ module Spree
                                :city => "Sao Paulo", :zipcode => "1234567", :phone => "12345678",
                                :country_id => Country.first.id, :state_id => State.first.id} }
 
-    let!(:payment_method) { create(:payment_method) }
+    let!(:payment_method) { create(:check_payment_method) }
 
     let(:current_api_user) do
       user = Spree.user_class.new(:email => "spree@example.com")
@@ -110,6 +110,12 @@ module Spree
       response.status.should == 200
     end
 
+    it "can view an order if the token is passed in header" do
+      request.headers["X-Spree-Order-Token"] = order.token
+      api_get :show, :id => order.to_param
+      response.status.should == 200
+    end
+
     it "cannot cancel an order that doesn't belong to them" do
       order.update_attribute(:completed_at, Time.now)
       order.update_attribute(:shipment_state, "ready")
@@ -144,7 +150,7 @@ module Spree
       line_item.should_receive(:update_attributes).with("special" => true)
 
       controller.stub(permitted_line_item_attributes: [:id, :variant_id, :quantity, :special])
-      api_post :create, :order => { 
+      api_post :create, :order => {
         :line_items => {
           "0" => {
             :variant_id => variant.to_param, :quantity => 5, :special => true
@@ -182,7 +188,7 @@ module Spree
       order.stub(:associate_user!)
       order.stub_chain(:contents, :add).and_return(line_item = double('LineItem'))
       line_item.should_not_receive(:update_attributes)
-      api_post :create, :order => { 
+      api_post :create, :order => {
         :line_items => {
           "0" => {
             :variant_id => variant.to_param, :quantity => 5
@@ -202,7 +208,7 @@ module Spree
 
       let(:variant) { create(:variant) }
       let!(:line_item) { order.contents.add(variant, 1) }
-      let!(:payment_method) { create(:payment_method) }
+      let!(:payment_method) { create(:check_payment_method) }
 
       let(:address_params) { { :country_id => Country.first.id, :state_id => State.first.id } }
       let(:billing_address) { { :firstname => "Tiago", :lastname => "Motta", :address1 => "Av Paulista",
@@ -367,7 +373,7 @@ module Spree
         end
 
         it "lists line item adjustments" do
-          adjustment = create(:adjustment, 
+          adjustment = create(:adjustment,
             :label => "10% off!",
             :order => order,
             :adjustable => order.line_items.first)
@@ -444,10 +450,13 @@ module Spree
       end
 
       it "responds with orders updated_at with miliseconds precision" do
+        if ActiveRecord::Base.connection.adapter_name == "Mysql2"
+          pending "MySQL does not support millisecond timestamps."
+        end
+
         api_get :index
         milisecond = order.updated_at.strftime("%L")
         updated_at = json_response["orders"].first["updated_at"]
-
         expect(updated_at.split("T").last).to have_content(milisecond)
       end
 

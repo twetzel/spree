@@ -8,7 +8,7 @@ module Spree
 
     let(:user) { stub_model(LegacyUser, :email => 'fox@mudler.com') }
     let(:shipping_method) { create(:shipping_method) }
-    let(:payment_method) { create(:payment_method) }
+    let(:payment_method) { create(:check_payment_method) }
 
     let(:product) { product = Spree::Product.create(:name => 'Test',
                                            :sku => 'TEST-1',
@@ -206,7 +206,7 @@ module Spree
       end
     end
 
-    context "shippments" do
+    context "shipments" do
       let(:params) do
         { :shipments_attributes => [
             { :tracking => '123456789',
@@ -254,19 +254,19 @@ module Spree
 
     it 'adds adjustments' do
       params = { :adjustments_attributes => [
-          { "label" => "Shipping Discount", "amount" => "-4.99" },
-          { "label" => "Promotion Discount", "amount" => "-3.00" }] }
+          { label: 'Shipping Discount', amount: -4.99 },
+          { label: 'Promotion Discount', amount: -3.00 }] }
 
       order = Order.build_from_api(user, params)
-      order.adjustments.all?(&:finalized?).should be_true
+      order.adjustments.all?(&:closed?).should be_true
       order.adjustments.first.label.should eq 'Shipping Discount'
       order.adjustments.first.amount.should eq -4.99
     end
 
     it 'handles adjustment building exceptions' do
       params = { :adjustments_attributes => [
-          { "amount" => "XXX" },
-          { "label" => "Promotion Discount", "amount" => "-3.00" }] }
+          { amount: 'XXX' },
+          { label: 'Promotion Discount', amount: '-3.00' }] }
 
       expect {
         order = Order.build_from_api(user, params)

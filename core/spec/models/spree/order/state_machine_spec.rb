@@ -51,6 +51,7 @@ describe Spree::Order do
     context "when current state is delivery" do
       before do
         order.stub :payment_required? => true
+        order.stub :apply_free_shipping_promotions
         order.state = "delivery"
       end
 
@@ -156,6 +157,16 @@ describe Spree::Order do
         it "should not alter the payment state" do
           order.cancel!
           order.payment_state.should be_nil
+        end
+      end
+
+      context "with payments" do
+        let(:payment) { create(:payment) }
+
+        it "should automatically refund all payments" do
+          order.stub_chain(:payments, :completed).and_return([payment])
+          payment.should_receive(:credit!)
+          order.cancel!
         end
       end
     end

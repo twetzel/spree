@@ -30,7 +30,7 @@ module Spree
     end
 
     def recalculate_adjustments
-      adjustments.includes(:source).open.each { |adjustment| adjustment.update! order }
+      adjustments.includes(:source).each { |adjustment| adjustment.update! order }
     end
 
     # Updates the following Order total values:
@@ -86,6 +86,7 @@ module Spree
         included_tax_total: order.included_tax_total,
         additional_tax_total: order.additional_tax_total,
         payment_total: order.payment_total,
+        shipment_total: order.shipment_total,
         total: order.total,
         updated_at: Time.now,
       )
@@ -137,8 +138,14 @@ module Spree
 
       #line_item are empty when user empties cart
       if line_items.empty? || round_money(order.payment_total) < round_money(order.total)
-        if payments.present? && payments.last.state == 'failed'
-          order.payment_state = 'failed'
+        if payments.present?
+          if payments.last.state == 'failed'
+            order.payment_state = 'failed'
+          elsif payments.last.state == 'checkout'
+            order.payment_state = 'pending'
+          elsif payments.last.state == 'completed'
+            order.payment_state = 'credit_owed'
+          end
         else
           order.payment_state = 'balance_due'
         end

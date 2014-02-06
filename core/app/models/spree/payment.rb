@@ -12,9 +12,11 @@ module Spree
       class_name: "Spree::Payment", foreign_key: :source_id
     has_many :log_entries, as: :source
     has_many :state_changes, as: :stateful
+    has_many :capture_events, :class_name => 'Spree::PaymentCaptureEvent'
 
     before_validation :validate_source
     before_create :set_unique_identifier
+    before_save :update_uncaptured_amount
 
     after_save :create_payment_profile, if: :profiles_supported?
 
@@ -31,7 +33,7 @@ module Spree
     scope :completed, -> { with_state('completed') }
     scope :pending, -> { with_state('pending') }
     scope :failed, -> { with_state('failed') }
-    scope :valid, -> { where('state NOT IN (?)', %w(failed invalid)) }
+    scope :valid, -> { where.not(state: %w(failed invalid)) }
 
     after_rollback :persist_invalid
 
@@ -128,11 +130,16 @@ module Spree
     end
 
     def is_avs_risky?
-      !(avs_response == "D" || avs_response.nil?)
+      return false if avs_response == "D"
+      return false if avs_response.blank?
+      return true
     end
 
     def is_cvv_risky?
-      !(cvv_response_code == "M" || cvv_response_code.nil?)
+      return false if cvv_response_code == "M"
+      return false if cvv_response_code.nil?
+      return false if cvv_response_message.present?
+      return true
     end
 
     private
@@ -182,6 +189,10 @@ module Spree
 
       def generate_identifier
         Array.new(8){ IDENTIFIER_CHARS.sample }.join
+      end
+
+      def update_uncaptured_amount
+        self.uncaptured_amount = amount - capture_events.sum(:amount)
       end
   end
 end

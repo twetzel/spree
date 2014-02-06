@@ -10,8 +10,9 @@ module Spree
       variant.option_values << create(:option_value)
       variant
     end
-    let!(:base_attributes) { [:id, :name, :sku, :price, :weight, :height, :width, :depth, :is_master, :cost_price, :permalink, :description] }
-    let!(:show_attributes) { base_attributes.dup.push(:in_stock) }
+
+    let!(:base_attributes) { [:id, :name, :sku, :price, :weight, :height, :width, :depth, :is_master, :cost_price, :slug, :description] }
+    let!(:show_attributes) { base_attributes.dup.push(:in_stock, :display_price) }
     let!(:new_attributes) { base_attributes }
 
     before do
@@ -20,7 +21,9 @@ module Spree
 
     it "can see a paginated list of variants" do
       api_get :index
-      json_response["variants"].first.should have_attributes(show_attributes)
+      first_variant = json_response["variants"].first
+      first_variant.should have_attributes(show_attributes)
+      first_variant["stock_items"].should be_present
       json_response["count"].should == 1
       json_response["current_page"].should == 1
       json_response["pages"].should == 1

@@ -147,6 +147,17 @@ module Spree
       cost + promo_total
     end
 
+    # Only one of either included_tax_total or additional_tax_total is set
+    # This method returns the total of the two. Saves having to check if 
+    # tax is included or additional.
+    def tax_total
+      included_tax_total + additional_tax_total
+    end
+
+    def final_price
+      discounted_cost + tax_total
+    end
+
     def display_discounted_cost
       Spree::Money.new(discounted_cost, { currency: currency })
     end
@@ -234,8 +245,12 @@ module Spree
 
     def to_package
       package = Stock::Package.new(stock_location, order)
-      inventory_units.includes(:variant).each do |inventory_unit|
-        package.add inventory_unit.line_item, 1, inventory_unit.state_name
+      grouped_inventory_units = inventory_units.includes(:line_item).group_by do |iu|
+        [iu.line_item, iu.state_name]
+      end
+
+      grouped_inventory_units.each do |(line_item, state_name), inventory_units|
+        package.add line_item, inventory_units.count, state_name
       end
       package
     end

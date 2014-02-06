@@ -1,10 +1,8 @@
 # Adjustments represent a change to the +item_total+ of an Order. Each adjustment
 # has an +amount+ that can be either positive or negative.
 #
-# Adjustments can be open/closed/finalized
-#
-# Once an adjustment is finalized, it cannot be changed, but an adjustment can
-# toggle between open/closed as needed
+# Adjustments can be "opened" or "closed".
+# Once an adjustment is closed, it will not be automatically updated.
 #
 # Boolean attributes:
 #
@@ -36,12 +34,8 @@ module Spree
         transition from: :open, to: :closed
       end
 
-      event :open do
-        transition from: :closed, to: :open
-      end
-
-      event :finalize do
-        transition from: [:open, :closed], to: :finalized
+      event :close do
+        transition from: :close, to: :open
       end
     end
 
@@ -53,15 +47,15 @@ module Spree
     scope :shipping, -> { where(adjustable_type: 'Spree::Shipment') }
     scope :optional, -> { where(mandatory: false) }
     scope :eligible, -> { where(eligible: true) }
-    scope :charge, -> { where('amount >= 0') }
-    scope :credit, -> { where('amount < 0') }
+    scope :charge, -> { where("#{quoted_table_name}.amount >= 0") }
+    scope :credit, -> { where("#{quoted_table_name}.amount < 0") }
     scope :promotion, -> { where(source_type: 'Spree::PromotionAction') }
     scope :return_authorization, -> { where(source_type: "Spree::ReturnAuthorization") }
     scope :included, -> { where(included: true)  }
     scope :additional, -> { where(included: false) }
 
-    def immutable?
-      state != "open"
+    def closed?
+      state == "closed"
     end
 
     def promotion?
@@ -76,7 +70,7 @@ module Spree
     #
     # Noop if the adjustment is locked.
     def update!(target = nil)
-      return amount if immutable?
+      return amount if closed?
       amount = source.compute_amount(target || adjustable)
       self.update_columns(
         amount: amount,

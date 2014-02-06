@@ -41,7 +41,7 @@ module Spree
     # Adds a new item to the order (creating a new order if none already exists)
     def populate
       populator = Spree::OrderPopulator.new(current_order(true), current_currency)
-      if populator.populate(params.slice(:products, :variants, :quantity))
+      if populator.populate(params[:variant_id], params[:quantity])
         current_order.ensure_updated_shipments
 
         respond_with(@order) do |format|
@@ -62,7 +62,11 @@ module Spree
     end
 
     def accurate_title
-      @order && @order.completed? ? "#{Spree.t(:order)} #{@order.number}" : Spree.t(:shopping_cart)
+      if @order && @order.completed?
+        Spree.t(:order_number, :number => @order.number)
+      else
+        Spree.t(:shopping_cart)
+      end
     end
 
     def check_authorization

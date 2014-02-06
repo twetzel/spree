@@ -9,6 +9,7 @@ require 'paperclip'
 require 'paranoia'
 require 'ransack'
 require 'state_machine'
+require 'friendly_id'
 
 module Spree
 
@@ -52,6 +53,7 @@ require 'spree/core/environment_extension'
 require 'spree/core/environment/calculators'
 require 'spree/core/environment'
 require 'spree/promo/environment'
+require 'spree/migrations'
 require 'spree/core/engine'
 
 require 'spree/i18n'
