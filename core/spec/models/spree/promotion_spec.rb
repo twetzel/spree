@@ -66,7 +66,7 @@ describe Spree::Promotion do
       promotion.created_at = 2.days.ago
 
       @user = stub_model(Spree::LegacyUser, :email => "spree@example.com")
-      @order = stub_model(Spree::Order, :user => @user, :created_at => DateTime.now)
+      @order = Spree::Order.create user: @user
       @payload = { :order => @order, :user => @user }
     end
 
@@ -265,7 +265,9 @@ describe Spree::Promotion do
     end
 
     it "true if there are no applicable rules" do
-      promotion.promotion_rules = [mock_model(Spree::PromotionRule, :eligible? => true, :applicable? => false)]
+      rule = Spree::PromotionRule.create
+      rule.stub eligible?: true, applicable?: false
+      promotion.promotion_rules = [rule]
       promotion.promotion_rules.stub(:for).and_return([])
       promotion.rules_are_eligible?(promotable).should be_true
     end
