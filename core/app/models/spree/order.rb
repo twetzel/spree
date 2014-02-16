@@ -23,9 +23,11 @@ module Spree
     if Spree.user_class
       belongs_to :user, class_name: Spree.user_class.to_s
       belongs_to :created_by, class_name: Spree.user_class.to_s
+      belongs_to :approver, class_name: Spree.user_class.to_s
     else
       belongs_to :user
       belongs_to :created_by
+      belongs_to :approver
     end
 
     belongs_to :bill_address, foreign_key: :bill_address_id, class_name: 'Spree::Address'
@@ -43,7 +45,6 @@ module Spree
     has_many :adjustments, -> { order("#{Adjustment.table_name}.created_at ASC") }, as: :adjustable, dependent: :destroy
     has_many :line_item_adjustments, through: :line_items, source: :adjustments
     has_many :shipment_adjustments, through: :shipments, source: :adjustments
-    has_many :all_adjustments, class_name: 'Spree::Adjustment'
     has_many :inventory_units, inverse_of: :order
 
     has_and_belongs_to_many :promotions, join_table: 'spree_orders_promotions'
@@ -73,6 +74,8 @@ module Spree
     validate :has_available_shipment
 
     make_permalink field: :number
+
+    delegate :update_totals, :persist_totals, :to => :updater
 
     class_attribute :update_hooks
     self.update_hooks = Set.new
@@ -105,6 +108,10 @@ module Spree
     # that should be called after Order#update
     def self.register_update_hook(hook)
       self.update_hooks.add(hook)
+    end
+
+    def all_adjustments
+      Adjustment.where("order_id = :order_id OR adjustable_id = :order_id", :order_id => self.id)
     end
 
     # For compatiblity with Calculator::PriceSack
@@ -180,11 +187,6 @@ module Spree
         state == 'confirm'
     end
 
-    # Indicates the number of items in the order
-    def item_count
-      line_items.inject(0) { |sum, li| sum + li.quantity }
-    end
-
     def backordered?
       shipments.any?(&:backordered?)
     end
@@ -214,10 +216,6 @@ module Spree
 
     def update!
       updater.update
-    end
-
-    def update_totals
-      updater.update_totals
     end
 
     def clone_billing_address
@@ -315,8 +313,6 @@ module Spree
     # Finalizes an in progress order after checkout is complete.
     # Called after transition to complete state when payments will have been processed
     def finalize!
-      touch :completed_at
-
       # lock all adjustments (coupon promotions, etc.)
       all_adjustments.update_all state: 'closed'
 
@@ -331,16 +327,22 @@ module Spree
       save
       updater.run_hooks
 
-      deliver_order_confirmation_email
+      deliver_order_confirmation_email unless confirmation_delivered?
+
+      consider_risk
+    end
+
+    def consider_risk
+      if is_risky? && !approved?
+        self.considered_risky!
+      else
+        touch :completed_at
+      end
     end
 
     def deliver_order_confirmation_email
-      begin
-        OrderMailer.confirm_email(self.id).deliver
-      rescue Exception => e
-        logger.error("#{e.class.name}: #{e.message}")
-        logger.error(e.backtrace * "\n")
-      end
+      OrderMailer.confirm_email(self.id).deliver
+      update_column(:confirmation_delivered, true)
     end
 
     # Helper methods for checkout steps
@@ -353,7 +355,7 @@ module Spree
     end
 
     def pending_payments
-      payments.select(&:checkout?)
+      payments.select { |payment| payment.checkout? || payment.pending? }
     end
 
     # processes any pending payments and must return a boolean as it's
@@ -431,8 +433,8 @@ module Spree
     def empty!
       line_items.destroy_all
       adjustments.destroy_all
-      updater.update_totals
-      updater.persist_totals
+      update_totals
+      persist_totals
     end
 
     def has_step?(step)
@@ -484,7 +486,7 @@ module Spree
       Spree::PromotionHandler::FreeShipping.new(self).activate
       shipments.each { |shipment| ItemAdjustments.new(shipment).update }
       updater.update_shipment_total
-      updater.persist_totals
+      persist_totals
     end
 
     # Clean shipments and make order back to address state
@@ -518,7 +520,7 @@ module Spree
     def set_shipments_cost
       shipments.each(&:update_amounts)
       updater.update_shipment_total
-      updater.persist_totals
+      persist_totals
     end
 
     def is_risky?
@@ -528,6 +530,20 @@ module Spree
         cvv_response_message IS NOT NULL and cvv_response_message != '' or
         state = 'failed'
       }.squish!).uniq.count > 0
+    end
+
+    def approved_by(user)
+      self.transaction do
+        self.update_columns(
+          approver_id: user.id,
+          approved_at: Time.now,
+        )
+        self.approve!
+      end
+    end
+
+    def approved?
+      !!self.approved_at
     end
 
     private
@@ -574,6 +590,7 @@ module Spree
 
       def after_resume
         shipments.each { |shipment| shipment.resume! }
+        consider_risk
       end
 
       def use_billing?
@@ -583,5 +600,6 @@ module Spree
       def set_currency
         self.currency = Spree::Config[:currency] if self[:currency].nil?
       end
+
   end
 end

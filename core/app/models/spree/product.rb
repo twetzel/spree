@@ -65,6 +65,8 @@ module Spree
     after_create :add_properties_and_option_types_from_prototype
     after_create :build_variants_from_option_values_hash, if: :option_values_hash
     after_save :save_master
+    after_save :touch
+    after_touch :touch_taxons
 
     delegate :images, to: :master, prefix: true
     alias_method :images, :master_images
@@ -245,6 +247,10 @@ module Spree
       def ensure_master
         return unless new_record?
         self.master ||= Variant.new
+      end
+
+      def touch_taxons
+        self.taxons.each(&:touch)
       end
   end
 end

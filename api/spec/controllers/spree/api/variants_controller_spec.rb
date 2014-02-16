@@ -11,7 +11,7 @@ module Spree
       variant
     end
 
-    let!(:base_attributes) { [:id, :name, :sku, :price, :weight, :height, :width, :depth, :is_master, :cost_price, :slug, :description] }
+    let!(:base_attributes) { Api::ApiHelpers.variant_attributes }
     let!(:show_attributes) { base_attributes.dup.push(:in_stock, :display_price) }
     let!(:new_attributes) { base_attributes }
 
@@ -92,6 +92,7 @@ module Spree
     it "can see a single variant" do
       api_get :show, :id => variant.to_param
       json_response.should have_attributes(show_attributes)
+      json_response["stock_items"].should be_present
       option_values = json_response["option_values"]
       option_values.first.should have_attributes([:name,
                                                  :presentation,
