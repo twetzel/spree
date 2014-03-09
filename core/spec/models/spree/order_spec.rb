@@ -269,9 +269,11 @@ describe Spree::Order do
       # and it's irrelevant to this test
       order.stub :has_available_shipment
       Spree::OrderMailer.stub_chain :confirm_email, :deliver
-      adjustments = double
+      adjustments = [double]
       order.should_receive(:all_adjustments).and_return(adjustments)
-      expect(adjustments).to receive(:update_all).with(state: 'closed')
+      adjustments.each do |adj|
+	expect(adj).to receive(:close)
+      end
       order.finalize!
     end
 
@@ -674,6 +676,26 @@ describe Spree::Order do
       order.update_column(:shipment_total, 5)
       order.ensure_updated_shipments
       expect(order.shipment_total).to eq(0)
+    end
+
+    context "except when order is completed, that's OrderInventory job" do
+      it "doesn't touch anything" do
+        order.stub completed?: true
+        order.update_column(:shipment_total, 5)
+        order.shipments.create!
+
+        expect {
+          order.ensure_updated_shipments
+        }.not_to change { order.shipment_total }
+
+        expect {
+          order.ensure_updated_shipments
+        }.not_to change { order.shipments }
+
+        expect {
+          order.ensure_updated_shipments
+        }.not_to change { order.state }
+      end
     end
   end
 

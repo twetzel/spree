@@ -2,8 +2,9 @@ require 'spree/core/validators/email'
 require 'spree/order/checkout'
 
 module Spree
-  class Order < ActiveRecord::Base
+  class Order < Spree::Base
     include Checkout
+    include CurrencyUpdater
 
     checkout_flow do
       go_to_state :address
@@ -68,6 +69,7 @@ module Spree
     attr_accessor :use_billing
 
     before_create :link_by_email
+    before_update :homogenize_line_item_currencies, if: :currency_changed?
 
     validates :email, presence: true, if: :require_email
     validates :email, email: true, if: :require_email, allow_blank: true
@@ -284,7 +286,7 @@ module Spree
     # include taxes then price adjustments are created instead.
     def create_tax_charge!
       Spree::TaxRate.adjust(self, line_items)
-      Spree::TaxRate.adjust(self, shipments)
+      Spree::TaxRate.adjust(self, shipments) if shipments.any?
     end
 
     def outstanding_balance
@@ -314,7 +316,7 @@ module Spree
     # Called after transition to complete state when payments will have been processed
     def finalize!
       # lock all adjustments (coupon promotions, etc.)
-      all_adjustments.update_all state: 'closed'
+      all_adjustments.each{|a| a.close}
 
       # update payment and shipment(s) states, and save
       updater.update_payment_state
@@ -327,17 +329,11 @@ module Spree
       save
       updater.run_hooks
 
+      touch :completed_at
+
       deliver_order_confirmation_email unless confirmation_delivered?
 
       consider_risk
-    end
-
-    def consider_risk
-      if is_risky? && !approved?
-        self.considered_risky!
-      else
-        touch :completed_at
-      end
     end
 
     def deliver_order_confirmation_email
@@ -495,7 +491,7 @@ module Spree
     # to delivery again so that proper updated shipments are created.
     # e.g. customer goes back from payment step and changes order items
     def ensure_updated_shipments
-      if shipments.any?
+      if shipments.any? && !self.completed?
         self.shipments.destroy_all
         self.update_column(:shipment_total, 0)
         restart_checkout_flow
@@ -534,16 +530,34 @@ module Spree
 
     def approved_by(user)
       self.transaction do
+        approve!
         self.update_columns(
           approver_id: user.id,
           approved_at: Time.now,
         )
-        self.approve!
       end
     end
 
     def approved?
       !!self.approved_at
+    end
+
+    def can_approve?
+      !approved?
+    end
+
+    def consider_risk
+      if is_risky? && !approved?
+        considered_risky!
+      end
+    end
+
+    def considered_risky!
+      update_column(:considered_risky, true)
+    end
+
+    def approve!
+      update_column(:considered_risky, false)
     end
 
     private

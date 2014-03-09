@@ -1,5 +1,5 @@
 module Spree
-  class Order < ActiveRecord::Base
+  class Order < Spree::Base
     module Checkout
       def self.included(klass)
         klass.class_eval do
@@ -67,14 +67,6 @@ module Spree
 
               event :authorize_return do
                 transition :to => :awaiting_return
-              end
-
-              event :considered_risky do
-                transition :to => :considered_risky
-              end
-
-              event :approve do
-                transition :to => :complete, :from => :considered_risky
               end
 
               if states[:payment]

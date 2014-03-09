@@ -56,7 +56,15 @@ describe Spree::Order do
       end
 
       it "adjusts tax rates when transitioning to delivery" do
+        # Once for the line items
+        Spree::TaxRate.should_receive(:adjust).once
+        order.should_receive(:set_shipments_cost)
+        order.next!
+      end
+
+      it "adjusts tax rates twice if there are any shipments" do
         # Once for the line items, once for the shipments
+        order.shipments.build
         Spree::TaxRate.should_receive(:adjust).twice
         order.should_receive(:set_shipments_cost)
         order.next!
@@ -184,16 +192,4 @@ describe Spree::Order do
       order.stub :has_available_shipment
     end
   end
-
-  context "considered risky" do
-    before do
-      order.state = 'complete'
-    end
-
-    it "sets the state" do
-      order.considered_risky!
-      expect(order.state).to eq 'considered_risky'
-    end
-  end
-
 end

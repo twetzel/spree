@@ -1,5 +1,5 @@
 module Spree
-  class Payment < ActiveRecord::Base
+  class Payment < Spree::Base
     include Spree::Payment::Processing
 
     IDENTIFIER_CHARS = (('A'..'Z').to_a + ('0'..'9').to_a - %w(0 1 I O)).freeze
@@ -159,7 +159,8 @@ module Spree
       end
 
       def create_payment_profile
-        return unless source.is_a?(CreditCard) && source.number && !source.has_payment_profile?
+        return unless source.respond_to?(:has_payment_profile?) && !source.has_payment_profile?
+
         payment_method.create_profile(self)
       rescue ActiveMerchant::ConnectionError => e
         gateway_error e

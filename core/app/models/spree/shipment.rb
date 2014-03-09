@@ -1,7 +1,7 @@
 require 'ostruct'
 
 module Spree
-  class Shipment < ActiveRecord::Base
+  class Shipment < Spree::Base
     belongs_to :order, class_name: 'Spree::Order', touch: true, inverse_of: :shipments
     belongs_to :address, class_name: 'Spree::Address', inverse_of: :shipments
     belongs_to :stock_location, class_name: 'Spree::StockLocation'
@@ -111,6 +111,10 @@ module Spree
       self.save!
     end
 
+    def tax_category
+      selected_shipping_rate.try(:tax_rate).try(:tax_category)
+    end
+
     def refresh_rates
       return shipping_rates if shipped?
       return [] unless can_get_rates?
@@ -146,6 +150,7 @@ module Spree
     def discounted_cost
       cost + promo_total
     end
+    alias discounted_amount discounted_cost
 
     # Only one of either included_tax_total or additional_tax_total is set
     # This method returns the total of the two. Saves having to check if 
@@ -264,11 +269,6 @@ module Spree
       )
     end
 
-    def persist_cost
-      self.cost = selected_shipping_rate.cost
-      update_amounts
-    end
-
     def update_amounts
       self.update_columns(
         cost: selected_shipping_rate.cost,
@@ -305,7 +305,6 @@ module Spree
 
       def after_ship
         inventory_units.each &:ship!
-        adjustments.map(&:finalize!)
         send_shipped_email
         touch :shipped_at
         update_order_shipment_state

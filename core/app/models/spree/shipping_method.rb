@@ -1,5 +1,6 @@
 module Spree
-  class ShippingMethod < ActiveRecord::Base
+  class ShippingMethod < Spree::Base
+    acts_as_paranoid
     include Spree::Core::CalculatedAdjustments
     DISPLAY = [:both, :front_end, :back_end]
 
@@ -14,6 +15,8 @@ module Spree
     has_and_belongs_to_many :zones, :join_table => 'spree_shipping_methods_zones',
                                     :class_name => 'Spree::Zone',
                                     :foreign_key => 'shipping_method_id'
+
+    belongs_to :tax_category, :class_name => 'Spree::TaxCategory'
 
     validates :name, presence: true
 
@@ -38,6 +41,10 @@ module Spree
     # Some shipping methods are only meant to be set via backend
     def frontend?
       self.display_on != "back_end"
+    end
+
+    def tax_category
+      Spree::TaxCategory.unscoped { super }
     end
 
     private

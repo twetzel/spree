@@ -1,5 +1,5 @@
 module Spree
-  class Payment < ActiveRecord::Base
+  class Payment < Spree::Base
     module Processing
       def process!
         if payment_method && payment_method.source_required?
@@ -7,7 +7,7 @@ module Spree
             if !processing?
               if payment_method.supports?(source)
                 if payment_method.auto_capture?
-                  capture!
+                  purchase!
                 else
                   authorize!
                 end

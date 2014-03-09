@@ -144,6 +144,12 @@ en:
       spree/line_item:
         one: Line Item
         other: Line Items
+      spree/option_type:
+        one: Option Type
+        other: Option Types
+      spree/option_value:
+        one: Option Value
+        other: Option Values
       spree/order:
         one: Order
         other: Orders
@@ -183,6 +189,9 @@ en:
       spree/state:
         one: State
         other: States
+      spree/stock_movement:
+        one: Stock Movement
+        other: Stock Movements
       spree/stock_location:
         one: Stock Location
         other: Stock Locations
@@ -223,6 +232,10 @@ en:
           attributes:
             base:
               card_expired: "Card has expired"
+        spree/line_item:
+          attributes:
+            currency:
+              must_match_order_currency: "Must match order currency"
   devise:
     confirmations:
       confirmed: Your account was successfully confirmed. You are now signed in.
